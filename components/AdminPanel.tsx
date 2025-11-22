@@ -4,7 +4,7 @@ import { UserRole, User, Subscriber, NewsletterCampaign, ChurchLocation, Announc
 import { DISTRICTS, DEPARTMENTS } from '../constants';
 import { db } from '../services/database';
 import { client } from '../services/client';
-import { Plus, Trash2, Shield, Lock, Key, Save, AlertCircle, Mail, Send, Users, Calendar, Activity, Edit, X, UserCheck, UserX, AlertTriangle, MapPin, Database, Download, Upload, RefreshCw, FileText, Clock, AlertOctagon, HelpCircle, Server, Code, Terminal, Copy, Check, Globe, Layers, ExternalLink, Wifi, WifiOff } from 'lucide-react';
+import { Plus, Trash2, Shield, Lock, Key, Save, AlertCircle, Mail, Send, Users, Calendar, Activity, Edit, X, UserCheck, UserX, AlertTriangle, MapPin, Database, Download, Upload, RefreshCw, FileText, Clock, AlertOctagon, HelpCircle, Server, Code, Terminal, Copy, Check, Globe, Layers, ExternalLink, Wifi, WifiOff, Search, Filter } from 'lucide-react';
 
 interface AdminPanelProps {
   currentUser?: User;
@@ -227,6 +227,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   // Server Settings
   const [apiUrl, setApiUrl] = useState(client.getConfig().apiUrl || '');
   
+  // User Search & Filters
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [userFilterRole, setUserFilterRole] = useState<string>('All');
+  const [userFilterDistrict, setUserFilterDistrict] = useState<string>('All');
+
   // User Management State
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; userId: string | null; userName: string }>({
     isOpen: false,
@@ -286,6 +291,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const pendingUsers = users.filter(u => u.status === 'pending');
   const rejectedUsers = users.filter(u => u.status === 'rejected');
   const activeUsers = users.filter(u => u.status === 'active');
+  
+  const filteredActiveUsers = activeUsers.filter(user => {
+    const matchesSearch = (user.name || '').toLowerCase().includes(userSearchTerm.toLowerCase()) || 
+                          (user.email || '').toLowerCase().includes(userSearchTerm.toLowerCase());
+    const matchesRole = userFilterRole === 'All' || user.role === userFilterRole;
+    const matchesDistrict = userFilterDistrict === 'All' || user.district === userFilterDistrict;
+    return matchesSearch && matchesRole && matchesDistrict;
+  });
   
   const totalAdmins = activeUsers.filter(u => 
     u.role === UserRole.SUPER_ADMIN || 
@@ -1243,10 +1256,53 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-              <h3 className="font-semibold text-slate-700">Approved Users List ({activeUsers.length})</h3>
-              <div className="text-xs text-slate-400 flex items-center">
-                <Save className="w-3 h-3 mr-1" /> Auto-saved
+            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 space-y-4">
+              <div className="flex justify-between items-center">
+                 <div className="flex items-center gap-2">
+                   <h3 className="font-semibold text-slate-700">Approved Users List</h3>
+                   <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                     {filteredActiveUsers.length}
+                   </span>
+                 </div>
+                 <div className="text-xs text-slate-400 flex items-center">
+                    <Save className="w-3 h-3 mr-1" /> Auto-saved
+                 </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                 <div className="relative flex-1">
+                    <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                    <input 
+                      type="text"
+                      placeholder="Search by name or email..."
+                      className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                      value={userSearchTerm}
+                      onChange={(e) => setUserSearchTerm(e.target.value)}
+                    />
+                 </div>
+                 <div className="flex gap-3">
+                    <div className="relative">
+                       <Filter className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                       <select 
+                          className="pl-9 pr-8 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none appearance-none bg-white min-w-[140px]"
+                          value={userFilterRole}
+                          onChange={(e) => setUserFilterRole(e.target.value)}
+                       >
+                          <option value="All">All Roles</option>
+                          {Object.values(UserRole).map(role => (
+                             <option key={role} value={role}>{role.replace('_', ' ')}</option>
+                          ))}
+                       </select>
+                    </div>
+                    <select 
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                        value={userFilterDistrict}
+                        onChange={(e) => setUserFilterDistrict(e.target.value)}
+                     >
+                        <option value="All">All Districts</option>
+                        {DISTRICTS.map(d => <option key={d} value={d}>{d}</option>)}
+                     </select>
+                 </div>
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -1262,7 +1318,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {activeUsers.map(user => (
+                  {filteredActiveUsers.length > 0 ? (
+                    filteredActiveUsers.map(user => (
                     <tr key={user.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center">
@@ -1329,7 +1386,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  ))
+                  ) : (
+                     <tr>
+                        <td colSpan={6} className="px-6 py-8 text-center text-slate-500 italic">
+                           No users found matching your search criteria.
+                        </td>
+                     </tr>
+                  )}
                 </tbody>
               </table>
             </div>

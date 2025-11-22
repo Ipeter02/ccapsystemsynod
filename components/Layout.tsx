@@ -60,7 +60,7 @@ const Layout: React.FC<LayoutProps> = ({
     { id: 'support', label: 'Support', icon: HelpCircle },
   ];
 
-  // Ensure Local Admins also see the panel link
+  // Ensure all Admin roles see the panel link
   if (user.role === UserRole.SUPER_ADMIN || user.role === UserRole.DISTRICT_ADMIN || user.role === UserRole.LOCAL_ADMIN) {
     navItems.push({ id: 'admin', label: 'Admin Panel', icon: Settings });
   }
@@ -214,7 +214,7 @@ const Layout: React.FC<LayoutProps> = ({
                           >
                             <div className="flex justify-between items-start mb-1">
                               <h4 className={`text-sm font-medium ${!notif.read ? 'text-indigo-700' : 'text-slate-700'}`}>{notif.title}</h4>
-                              <span className="text--[10px] text-slate-400">{new Date(notif.date).toLocaleDateString()}</span>
+                              <span className="text-[10px] text-slate-400">{new Date(notif.date).toLocaleDateString()}</span>
                             </div>
                             <p className="text-xs text-slate-500 line-clamp-2">{notif.message}</p>
                           </div>

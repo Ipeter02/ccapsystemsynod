@@ -2,17 +2,18 @@
 import React, { useState } from 'react';
 import { UserRole, User } from '../types';
 import { client } from '../services/client';
-import { Lock, Mail, Phone, AlertCircle, User as UserIcon, Key, ShieldCheck, ArrowRight, Globe, ArrowLeft, Loader2 } from 'lucide-react';
+import { Lock, Mail, Phone, AlertCircle, User as UserIcon, Key, ShieldCheck, ArrowRight, Globe, ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: User) => void;
-  onRegister: (user: User) => void;
+  onRegister: (user: User) => Promise<void>;
   users: User[];
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin, onRegister, users }) => {
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
   
   // Form Fields
   const [email, setEmail] = useState('');
@@ -43,31 +44,42 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, users }) => {
         setIsAdminMode(true);
         setError('Administrator account recognized. Please enter your password to proceed.');
         setIsLoading(false);
-        // We keep the email filled, user just needs to enter password
         return;
       }
       
-      // Log in existing standard user
+      // Check status
+      if (existingUser.status === 'pending') {
+        setError('Your account is pending approval by the Synod Administrator. Please check back later.');
+        setIsLoading(false);
+        return;
+      }
+
+      if (existingUser.status === 'rejected') {
+         setError('This account has been deactivated. Please contact the main office.');
+         setIsLoading(false);
+         return;
+      }
+      
+      // Log in existing active user
       onLogin(existingUser);
     } else {
-      // Create and log in new user immediately with PENDING status (Guest Mode)
+      // REGISTER NEW USER
       const newUser: User = {
         id: Date.now().toString(),
         name: name.trim(),
         email: normalizedEmail,
         phone: phone.trim(),
-        role: UserRole.PASTOR, // Default standard role
-        status: 'pending', // Changed to pending for security
+        role: UserRole.PASTOR, // Default role
+        status: 'pending', // MUST be pending
         avatar: `https://ui-avatars.com/api/?name=${name}&background=random`
       };
       
-      // Use the parent handler which wraps client.users.register
-      await onRegister(newUser);
-      // Note: onRegister in parent might be async, but we also need to trigger login state
-      // Usually onRegister updates the user list, but we might need to manually trigger login if we want immediate session
-      // However, typically we want them to wait for approval.
-      // But for "Guest Mode" if status is pending, we can still log them in as restricted.
-      onLogin(newUser);
+      try {
+        await onRegister(newUser);
+        setRegistrationSuccess(true);
+      } catch (err: any) {
+        setError(err.message || 'Registration failed.');
+      }
     }
     setIsLoading(false);
   };
@@ -79,17 +91,41 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, users }) => {
 
     try {
       const user = await client.users.login(email.trim(), password);
-      if (user.role === UserRole.SUPER_ADMIN || user.role === UserRole.DISTRICT_ADMIN || user.role === UserRole.LOCAL_ADMIN) {
-        onLogin(user);
-      } else {
-        setError('Access denied. This account does not have administrative privileges.');
-      }
+      onLogin(user);
     } catch (err: any) {
       setError(err.message || 'Invalid credentials. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (registrationSuccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4">
+         <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 text-center animate-fade-in">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+               <CheckCircle className="w-10 h-10 text-green-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-800 mb-4">Registration Successful</h2>
+            <p className="text-slate-600 mb-8">
+               Your request to access the CCAP Synod System has been sent. 
+               Please wait for an Administrator to approve your account.
+            </p>
+            <button 
+               onClick={() => {
+                 setRegistrationSuccess(false);
+                 setEmail('');
+                 setName('');
+                 setPhone('');
+               }}
+               className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition-colors"
+            >
+               Return to Login
+            </button>
+         </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4 relative overflow-hidden">
@@ -138,7 +174,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, users }) => {
             /* PUBLIC ACCESS FORM */
             <form onSubmit={handlePublicLogin} className="space-y-5 animate-fade-in">
               <div className="text-center mb-2">
-                <p className="text-slate-600 text-sm">Enter your details to access the system.</p>
+                <p className="text-slate-600 text-sm">Login or Register to access.</p>
               </div>
 
               <div>
@@ -196,7 +232,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, users }) => {
                 disabled={isLoading}
                 className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-lg shadow-indigo-200 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all transform hover:-translate-y-0.5 disabled:bg-indigo-400 disabled:transform-none"
               >
-                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Enter System <ArrowRight className="ml-2 w-4 h-4" /></>}
+                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Continue <ArrowRight className="ml-2 w-4 h-4" /></>}
               </button>
             </form>
           ) : (

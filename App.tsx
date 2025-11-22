@@ -55,7 +55,14 @@ const App: React.FC = () => {
         // Verify against the fresh data source (Local or Remote)
         const sourceUser = usersData.find(u => u.id === storedUser.id);
         if (sourceUser && (sourceUser.status === 'active' || sourceUser.status === 'pending')) {
-          setCurrentUser(sourceUser);
+          // Only auto-login if active, or if pending (Guest Mode allowed temporarily or denied in Login component)
+          if (sourceUser.status === 'active') {
+             setCurrentUser(sourceUser);
+          } else {
+             // If pending, we force them to login screen to see status message
+             db.session.set(null);
+             setCurrentUser(null);
+          }
         } else {
           db.session.set(null);
           setCurrentUser(null);
@@ -107,9 +114,9 @@ const App: React.FC = () => {
       // Refresh data
       const users = await client.users.getAll();
       setAllUsers(users);
-      alert("Registration successful! Please wait for admin approval.");
+      // We do NOT auto-login here anymore. Login component handles success message.
     } catch (e: any) {
-      alert("Registration failed: " + e.message);
+      throw e; // Pass error back to Login component
     }
   };
 
@@ -130,7 +137,7 @@ const App: React.FC = () => {
         type: 'info'
       };
       setNotifications(prev => [newNotif, ...prev]);
-      alert("User approved successfully. If using Remote Server, they can now log in from any device.");
+      alert("User approved successfully. They can now log in.");
     } catch (e: any) {
       alert("Failed to approve user: " + e.message);
     }
@@ -149,8 +156,6 @@ const App: React.FC = () => {
 
   // CRUD Handlers
   const handleAddUser = async (newUser: User) => {
-     // Admin manual add - usually goes straight to active
-     // For simplicity, we register then approve, or just add directly via client
      try {
        await client.users.register(newUser);
        await client.users.approve(newUser.id, newUser.role, newUser.district);
