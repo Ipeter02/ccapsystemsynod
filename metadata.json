@@ -1,0 +1,7 @@
+{
+  "name": "CCAP Livingstonia Synod Management System",
+  "description": "A comprehensive management system for the CCAP Synod of Livingstonia, facilitating pastor directory management, district administration, secure communication, and departmental oversight.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
